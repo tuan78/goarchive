@@ -88,8 +88,8 @@ The best way to contribute is by adding new database or storage providers! See o
 ### Go Style
 
 - Follow [Effective Go](https://golang.org/doc/effective_go.html)
-- Use `gofmt` for formatting
-- Use `golint` and address warnings
+- Use `gofmt` for formatting (or `gofumpt` for stricter formatting)
+- Use `golangci-lint` to check for issues: run `make lint`
 - Keep functions small and focused
 - Write clear, descriptive variable names
 

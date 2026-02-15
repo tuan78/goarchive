@@ -1,0 +1,130 @@
+version: 2
+updates:
+  # Core module
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "go"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # CLI module
+  - package-ecosystem: "gomod"
+    directory: "/cmd/goarchive"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "go"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # Database providers
+  - package-ecosystem: "gomod"
+    directory: "/database/postgres"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "go"
+      - "database"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # Storage providers
+  - package-ecosystem: "gomod"
+    directory: "/storage/disk"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "go"
+      - "storage"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  - package-ecosystem: "gomod"
+    directory: "/storage/s3"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "go"
+      - "storage"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # Example modules
+  - package-ecosystem: "gomod"
+    directory: "/examples/basic-backup"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+      - "examples"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  - package-ecosystem: "gomod"
+    directory: "/examples/using-env-config"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "go"
+      - "examples"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "docker"
+      include: "scope"

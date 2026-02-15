@@ -1,0 +1,92 @@
+name: Coverage
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    coverage:
+        name: Code Coverage
+        runs-on: ubuntu-latest
+
+        services:
+            postgres:
+                image: postgres:16
+                env:
+                    POSTGRES_USER: testuser
+                    POSTGRES_PASSWORD: testpass
+                    POSTGRES_DB: testdb
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+                ports:
+                    - 5432:5432
+
+            localstack:
+                image: localstack/localstack:latest
+                env:
+                    SERVICES: s3
+                    DEBUG: 1
+                ports:
+                    - 4566:4566
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: "1.24"
+                  cache: true
+
+            - name: Install dependencies
+              run: |
+                  go mod download
+                  cd cmd/goarchive && go mod download
+                  cd ../../database/postgres && go mod download
+                  cd ../../storage/disk && go mod download
+                  cd ../../storage/s3 && go mod download
+
+            - name: Generate coverage - Core
+              run: go test -v -race -coverprofile=coverage-core.txt -covermode=atomic ./core/...
+
+            - name: Generate coverage - Database providers
+              run: |
+                  cd database/postgres
+                  go test -v -race -coverprofile=coverage-postgres.txt -covermode=atomic ./...
+              env:
+                  POSTGRES_HOST: localhost
+                  POSTGRES_PORT: 5432
+                  POSTGRES_USER: testuser
+                  POSTGRES_PASSWORD: testpass
+                  POSTGRES_DB: testdb
+
+            - name: Generate coverage - Storage providers
+              run: |
+                  cd storage/disk
+                  go test -v -race -coverprofile=coverage-disk.txt -covermode=atomic ./...
+                  cd ../s3
+                  go test -v -race -coverprofile=coverage-s3.txt -covermode=atomic ./...
+              env:
+                  AWS_ENDPOINT: http://localhost:4566
+                  AWS_REGION: us-east-1
+                  AWS_ACCESS_KEY_ID: test
+                  AWS_SECRET_ACCESS_KEY: test
+
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v4
+              with:
+                  files: >-
+                      ./coverage-core.txt,
+                      ./database/postgres/coverage-postgres.txt,
+                      ./storage/disk/coverage-disk.txt,
+                      ./storage/s3/coverage-s3.txt
+                  flags: unittests
+                  name: goarchive-coverage
+                  fail_ci_if_error: false
+                  token: ${{ secrets.CODECOV_TOKEN }}

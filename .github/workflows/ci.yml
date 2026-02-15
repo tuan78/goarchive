@@ -1,0 +1,81 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: "1.24"
+                  cache: true
+
+            - name: golangci-lint
+              uses: golangci/golangci-lint-action@v6
+              with:
+                  version: latest
+                  args: --timeout=5m
+
+    test:
+        name: Test
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: "1.24"
+                  cache: true
+
+            - name: Install dependencies
+              run: |
+                  go mod download
+                  cd cmd/goarchive && go mod download
+                  cd ../../database/postgres && go mod download
+                  cd ../../storage/disk && go mod download
+                  cd ../../storage/s3 && go mod download
+
+            - name: Run unit tests - Core
+              run: go test -v -short ./core/...
+
+            - name: Run unit tests - Storage (disk)
+              run: |
+                  cd storage/disk
+                  go test -v -short ./...
+
+            - name: Run unit tests - CLI
+              run: |
+                  cd cmd/goarchive
+                  go test -v -short ./...
+
+    build:
+        name: Build
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: "1.24"
+                  cache: true
+
+            - name: Build CLI
+              run: make build
+
+            - name: Verify binary exists
+              run: test -f goarchive

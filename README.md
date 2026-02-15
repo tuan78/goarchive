@@ -4,6 +4,9 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.24-blue.svg)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/tuan78/goarchive/workflows/CI/badge.svg)](https://github.com/tuan78/goarchive/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/tuan78/goarchive/branch/main/graph/badge.svg)](https://codecov.io/gh/tuan78/goarchive)
+[![Go Report Card](https://goreportcard.com/badge/github.com/tuan78/goarchive)](https://goreportcard.com/report/github.com/tuan78/goarchive)
 
 GoArchive makes database backups simple and extensible. Built with a plugin architecture, it supports multiple databases and cloud storage providers out of the box, and makes it easy for the community to add more.
 
