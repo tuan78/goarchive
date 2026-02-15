@@ -25,11 +25,12 @@ type DatabaseConfig struct {
 // StorageConfig contains storage settings
 type StorageConfig struct {
 	Type      string
-	Bucket    string
-	Region    string
-	AccessKey string
-	SecretKey string
-	Prefix    string
+	Bucket    string // For S3-compatible storage
+	Region    string // For S3-compatible storage
+	AccessKey string // For S3-compatible storage
+	SecretKey string // For S3-compatible storage
+	Prefix    string // For S3-compatible storage
+	Path      string // For disk storage
 }
 
 // LoadConfigFromEnv loads configuration from environment variables
@@ -45,12 +46,13 @@ func LoadConfigFromEnv() (*Config, error) {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		Storage: StorageConfig{
-			Type:      getEnv("STORAGE_TYPE", "s3"),
+			Type:      getEnv("STORAGE_TYPE", "disk"),
 			Bucket:    getEnv("STORAGE_BUCKET", ""),
 			Region:    getEnv("STORAGE_REGION", "us-east-1"),
 			AccessKey: getEnv("STORAGE_ACCESS_KEY", ""),
 			SecretKey: getEnv("STORAGE_SECRET_KEY", ""),
 			Prefix:    getEnv("STORAGE_PREFIX", "backups/"),
+			Path:      getEnv("STORAGE_PATH", "./backups"),
 		},
 	}
 
@@ -71,8 +73,17 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("database username is required")
 	}
 
-	if c.Storage.Bucket == "" {
-		return fmt.Errorf("storage bucket is required")
+	// Storage validation depends on type
+	switch c.Storage.Type {
+	case "s3":
+		if c.Storage.Bucket == "" {
+			return fmt.Errorf("storage bucket is required for S3 storage")
+		}
+	case "disk":
+		// Path is optional, will default to ./backups
+		// No validation needed
+	default:
+		// For unknown storage types, let the provider handle validation
 	}
 
 	return nil

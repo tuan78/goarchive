@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # PostgreSQL database for testing
   postgres:
@@ -34,12 +32,13 @@ services:
       - localstack-data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
 
-  # GoArchive application
+  # GoArchive application (S3 storage) - One-time backup
   goarchive:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: goarchive
+    command: backup
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,10 +64,113 @@ services:
 
       # AWS SDK configuration for LocalStack
       AWS_ENDPOINT_URL: http://localstack:4566
-    # Uncomment for manual run
-    # profiles:
-    #   - manual
+    # One-time backup - runs and exits
+    profiles:
+      - oneshot
+
+  # GoArchive application (Disk storage) - One-time backup
+  goarchive-disk:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: goarchive-disk
+    command: backup
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database configuration
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: testuser
+      DB_PASSWORD: testpass
+      DB_DATABASE: testdb
+      DB_SSLMODE: disable
+
+      # Storage configuration (using disk)
+      STORAGE_TYPE: disk
+      STORAGE_PATH: /root/backups
+    volumes:
+      - backup-data:/root/backups
+    # One-time backup - runs and exits
+    profiles:
+      - oneshot
+
+  # GoArchive scheduled backups (Disk storage) - Keeps running
+  goarchive-scheduled:
+    build:
+      context: .
+      dockerfile: Dockerfile.scheduler
+    container_name: goarchive-scheduled
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database configuration
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: testuser
+      DB_PASSWORD: testpass
+      DB_DATABASE: testdb
+      DB_SSLMODE: disable
+
+      # Storage configuration (using disk)
+      STORAGE_TYPE: disk
+      STORAGE_PATH: /root/backups
+
+      # Scheduling (choose one):
+      # Option 1: Cron expression (default: every 6 hours)
+      BACKUP_SCHEDULE: "0 */6 * * *"
+      # Option 2: Interval in seconds (uncomment to use instead of cron)
+      # BACKUP_INTERVAL: "3600"  # Every 1 hour
+    volumes:
+      - backup-data:/root/backups
+
+  # GoArchive scheduled backups (S3 storage) - Keeps running
+  goarchive-scheduled-s3:
+    build:
+      context: .
+      dockerfile: Dockerfile.scheduler
+    container_name: goarchive-scheduled-s3
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_started
+    environment:
+      # Database configuration
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: testuser
+      DB_PASSWORD: testpass
+      DB_DATABASE: testdb
+      DB_SSLMODE: disable
+
+      # Storage configuration (using LocalStack)
+      STORAGE_TYPE: s3
+      STORAGE_BUCKET: backups
+      STORAGE_REGION: us-east-1
+      STORAGE_ACCESS_KEY: test
+      STORAGE_SECRET_KEY: test
+      STORAGE_PREFIX: db-backups/
+
+      # AWS SDK configuration for LocalStack
+      AWS_ENDPOINT_URL: http://localstack:4566
+
+      # Scheduling (choose one):
+      # Option 1: Cron expression (default: every 6 hours)
+      BACKUP_SCHEDULE: "0 */6 * * *"
+      # Option 2: Interval in seconds (uncomment to use instead of cron)
+      # BACKUP_INTERVAL: "21600"  # Every 6 hours
+    profiles:
+      - scheduled
 
 volumes:
   postgres-data:
   localstack-data:
+  backup-data:

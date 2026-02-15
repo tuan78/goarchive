@@ -2,6 +2,14 @@
 
 This directory contains working example programs demonstrating how to use GoArchive.
 
+## Independent Modules
+
+Each example has its own `go.mod` file, making them independently buildable and runnable. This allows you to:
+
+- Build and run examples without needing to understand the entire project structure
+- Use examples as starting templates for your own projects
+- Test the library integration in isolation
+
 ## Examples
 
 ### [basic-backup](basic-backup/)
@@ -11,6 +19,11 @@ A simple example showing how to create a backup using PostgreSQL and S3.
 **Run:**
 
 ```bash
+cd examples/basic-backup
+go mod tidy  # First time only
+go run main.go
+
+# Or from the project root
 go run examples/basic-backup/main.go
 ```
 
@@ -21,9 +34,15 @@ Demonstrates how to use the built-in environment variable configuration loader.
 **Run:**
 
 ```bash
+cd examples/using-env-config
+go mod tidy  # First time only
+
 export DB_TYPE=postgres
 export DB_HOST=localhost
 # ... set other env vars
+go run main.go
+
+# Or from the project root
 go run examples/using-env-config/main.go
 ```
 
@@ -45,16 +64,27 @@ See the [\_templates/](_templates/) directory for plugin templates and [EXTENDIN
 
 ## Running Examples
 
-All examples are standard Go programs that import the goarchive module:
+Each example is an independent Go module. You can run them in two ways:
+
+**From the example directory:**
 
 ```bash
-# Run any example from the project root
-go run examples/basic-backup/main.go
+cd examples/basic-backup
+go mod tidy  # First time only
+go run main.go
 
 # Or build them
-go build -o backup examples/basic-backup/main.go
-./backup
+go build -o basic-backup .
+./basic-backup
 ```
+
+**From the project root:**
+
+```bash
+go run examples/basic-backup/main.go
+```
+
+The examples use Go module `replace` directives to depend on local goarchive modules during development.
 
 ## Configuration
 

@@ -1,0 +1,51 @@
+# Build stage
+FROM golang:1.24-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+WORKDIR /app
+
+# Copy everything (submodules need local replace paths to work)
+COPY . .
+
+# Download dependencies for the CLI
+WORKDIR /app/cmd/goarchive
+RUN go mod download
+
+# Build the application from cmd/goarchive
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o goarchive .
+
+# Runtime stage
+FROM postgres:16-alpine
+
+# Install ca-certificates for HTTPS requests and cron for scheduling
+RUN apk --no-cache add ca-certificates dcron
+
+WORKDIR /root/
+
+# Copy the binary from builder
+COPY --from=builder /app/cmd/goarchive/goarchive .
+
+# Copy scheduler script
+COPY scripts/scheduler.sh /root/scheduler.sh
+RUN chmod +x /root/scheduler.sh
+
+# Create default backup directory for disk storage
+RUN mkdir -p /root/backups
+
+# Create log directory for cron
+RUN mkdir -p /var/log && touch /var/log/goarchive-cron.log
+
+# Volume for persistent disk storage
+VOLUME ["/root/backups"]
+
+# Environment variables for scheduling:
+# - BACKUP_SCHEDULE: Cron expression (default: "0 */6 * * *" - every 6 hours)
+# - BACKUP_INTERVAL: Interval in seconds (overrides cron if set)
+# Database configuration:
+# - DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE, DB_TYPE, DB_SSLMODE
+# Storage configuration:
+# - STORAGE_TYPE (disk|s3), STORAGE_PATH, STORAGE_BUCKET, STORAGE_REGION, etc.
+
+ENTRYPOINT ["/root/scheduler.sh"]

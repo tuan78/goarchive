@@ -38,89 +38,217 @@ go get goarchive/database/postgres
 go get goarchive/storage/s3
 ```
 
+## Architecture
+
+GoArchive follows a **modular multi-module architecture**:
+
+```
+goarchive/                    # Core library (no provider dependencies)
+├── core/                     # Core interfaces and logic
+├── cmd/goarchive/            # CLI application (separate module)
+│   └── go.mod               # Imports core + selected providers
+├── database/
+│   └── postgres/            # PostgreSQL provider (separate module)
+│       └── go.mod           # Only imports pgx
+└── storage/
+    ├── disk/                # Disk provider (separate module, no deps)
+    │   └── go.mod
+    └── s3/                  # S3 provider (separate module)
+        └── go.mod           # Only imports AWS SDK
+```
+
+**Benefits:**
+
+- ✅ Import only what you need - no forced dependencies
+- ✅ Each provider is independently versioned
+- ✅ Add custom providers without modifying core
+- ✅ CLI and library use the same codebase
+
 ## Quick Start
 
 ### Running the CLI Tool
 
-The `cmd/goarchive` binary reads all configuration from environment variables.
+The `goarchive` CLI supports subcommands with flags or environment variables.
 
-**Option 1: Run directly**
+**Quick Usage:**
 
 ```bash
-# Set environment variables
-export DB_TYPE=postgres
+# Show help
+goarchive help
+
+# Show available database and storage providers
+goarchive providers
+
+# Create backup to local disk (default)
+goarchive backup --db-host localhost --db-name mydb
+
+# Backup to custom disk location
+goarchive backup --db-host localhost --db-name mydb --storage-path /var/backups
+
+# Backup to S3
+goarchive backup --db-host localhost --db-name mydb --storage-type s3 --storage-bucket my-backups
+
+# List backups from disk
+goarchive list
+
+# List backups from S3
+goarchive list --storage-type s3 --storage-bucket my-backups
+
+# Show version
+goarchive version
+```
+
+**Option 1: Using command-line flags (local disk storage)**
+
+```bash
+goarchive backup \
+  --db-host localhost \
+  --db-port 5432 \
+  --db-user postgres \
+  --db-password secret \
+  --db-name mydb
+
+# Or specify custom backup location
+goarchive backup \
+  --db-host localhost \
+  --db-name mydb \
+  --storage-path /var/backups/database
+```
+
+**Option 2: Using command-line flags (S3 storage)**
+
+```bash
+goarchive backup \
+  --db-host localhost \
+  --db-port 5432 \
+  --db-user postgres \
+  --db-password secret \
+  --db-name mydb \
+  --storage-type s3 \
+  --storage-bucket my-backups \
+  --storage-region us-west-2 \
+  --storage-access-key your-aws-key \
+  --storage-secret-key your-aws-secret
+```
+
+**Option 3: Using environment variables**
+
+```bash
+# Set environment variables for disk storage (default)
 export DB_HOST=localhost
 export DB_PORT=5432
 export DB_USERNAME=postgres
 export DB_PASSWORD=secret
 export DB_DATABASE=mydb
+export STORAGE_PATH=./my-backups
+
+# Run backup
+goarchive backup
+
+# For S3 storage
 export STORAGE_TYPE=s3
 export STORAGE_BUCKET=my-backups
 export STORAGE_REGION=us-west-2
 export STORAGE_ACCESS_KEY=your-aws-key
 export STORAGE_SECRET_KEY=your-aws-secret
 
-# Run without building
-go run cmd/goarchive/main.go
+goarchive backup
 ```
 
-**Option 2: Build and run**
+**Option 4: Mixed (flags override environment variables)**
+
+```bash
+export DB_HOST=localhost
+export STORAGE_PATH=./backups
+
+# Override specific values with flags
+goarchive backup --db-name mydb --db-password secret
+```
+
+**Option 5: Build and install**
 
 ```bash
 # Build binary
-go build -o goarchive ./cmd/goarchive
+cd cmd/goarchive && go build -o ../../goarchive .
 
-# Run the binary
-./goarchive
+# Or use make
+make build
 
-# Or install globally
-go install ./cmd/goarchive
-goarchive
+# Install globally
+cd cmd/goarchive && go install .
+
+# Run from anywhere
+goarchive backup --db-host localhost --db-name mydb
 ```
 
-**Option 3: Using Docker**
+**Option 6: Using Docker**
 
 ```bash
 # Build image
 docker build -t goarchive:latest .
 
-# Run with environment variables
+# Run backup to local disk (mount volume for persistence)
 docker run --rm \
+  -v $(pwd)/backups:/root/backups \
   -e DB_HOST=your-db-host \
-  -e DB_PORT=5432 \
-  -e DB_USERNAME=postgres \
   -e DB_PASSWORD=secret \
   -e DB_DATABASE=mydb \
+  goarchive:latest backup
+
+# Run backup to S3
+docker run --rm \
+  -e DB_HOST=your-db-host \
+  -e DB_PASSWORD=secret \
+  -e DB_DATABASE=mydb \
+  -e STORAGE_TYPE=s3 \
   -e STORAGE_BUCKET=my-backups \
-  -e STORAGE_REGION=us-west-2 \
-  -e STORAGE_ACCESS_KEY=your-key \
-  -e STORAGE_SECRET_KEY=your-secret \
-  goarchive:latest
+  goarchive:latest backup
+
+# List backups from disk
+docker run --rm \
+  -v $(pwd)/backups:/root/backups \
+  goarchive:latest list
+
+# List backups from S3
+docker run --rm \
+  -e STORAGE_TYPE=s3 \
+  -e STORAGE_BUCKET=my-backups \
+  goarchive:latest list
 ```
 
-**Option 4: Kubernetes CronJob**
+**Option 7: Kubernetes CronJob**
 
 See the [Production Deployment](#production-deployment) section below for complete K8s examples.
 
 ### Complete Example with Output
 
 ```bash
-# Set all required environment variables
-export DB_TYPE=postgres
+# Using command-line flags
+goarchive backup \
+  --db-host localhost \
+  --db-port 5432 \
+  --db-user postgres \
+  --db-password secret \
+  --db-name myapp \
+  --storage-bucket my-backups \
+  --storage-region us-west-2 \
+  --storage-access-key AKIAIOSFODNN7EXAMPLE \
+  --storage-secret-key wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY \
+  --storage-prefix prod-backups/
+
+# Or using environment variables
 export DB_HOST=localhost
 export DB_PORT=5432
 export DB_USERNAME=postgres
 export DB_PASSWORD=secret
 export DB_DATABASE=myapp
-export STORAGE_TYPE=s3
 export STORAGE_BUCKET=my-backups
 export STORAGE_REGION=us-west-2
 export STORAGE_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
 export STORAGE_SECRET_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 export STORAGE_PREFIX=prod-backups/
 
-# Run the backup
-go run cmd/goarchive/main.go
+goarchive backup
 ```
 
 **Expected Output:**
@@ -210,7 +338,49 @@ goarchive/
 
 ## Docker Deployment
 
-### Using Docker Compose (Recommended for Testing)
+GoArchive supports two deployment modes:
+
+1. **Scheduled Backups** (Recommended): Runs continuously with automatic backups on a schedule
+2. **One-time Backups**: Runs a single backup and exits
+
+See [docs/DOCKER_COMPOSE.md](docs/DOCKER_COMPOSE.md) for detailed deployment guide.
+
+### Quick Start: Scheduled Backups
+
+Run continuous backups on a schedule (default: every 6 hours):
+
+```bash
+# Start infrastructure and scheduled backup service
+docker-compose up -d
+
+# View logs
+docker-compose logs -f goarchive-scheduled
+
+# The default Dockerfile creates /root/backups directory for disk storage
+# Backups are stored in the backup-data Docker volume
+```
+
+Customize the schedule with environment variables:
+
+```yaml
+environment:
+  BACKUP_SCHEDULE: "0 2 * * *" # Daily at 2 AM (cron expression)
+  # Or use interval: BACKUP_INTERVAL: "3600"  # Every 1 hour (in seconds)
+```
+
+### Quick Start: One-time Backup
+
+For testing or manual backups:
+
+```bash
+# One-time backup to disk
+docker-compose --profile oneshot run --rm goarchive-disk
+
+# One-time backup to S3
+docker-compose --profile oneshot run --rm goarchive
+```
+
+### Using Docker Compose for Testing
 
 1. **Start the test environment**:
 
@@ -239,10 +409,32 @@ goarchive/
 1. **Build the image**:
 
    ```bash
+   # For scheduled backups
+   docker build -f Dockerfile.scheduler -t goarchive:scheduler .
+
+   # For one-time backups
    docker build -t goarchive .
    ```
 
-2. **Run the backup**:
+2. **Run scheduled backups**:
+
+   ```bash
+   docker run -d \
+     --name goarchive-scheduler \
+     --restart unless-stopped \
+     -e DB_HOST=your-postgres-host \
+     -e DB_PORT=5432 \
+     -e DB_USERNAME=postgres \
+     -e DB_PASSWORD=your-password \
+     -e DB_DATABASE=your-database \
+     -e STORAGE_TYPE=disk \
+     -e STORAGE_PATH=/root/backups \
+     -e BACKUP_SCHEDULE="0 */6 * * *" \
+     -v /host/backups:/root/backups \
+     goarchive:scheduler
+   ```
+
+3. **Run one-time backup**:
 
    ```bash
    docker run --rm \
@@ -255,8 +447,10 @@ goarchive/
      -e STORAGE_REGION=us-east-1 \
      -e STORAGE_ACCESS_KEY=your-access-key \
      -e STORAGE_SECRET_KEY=your-secret-key \
-     goarchive
+     goarchive backup
    ```
+
+> **Note**: The Dockerfile creates `/root/backups` directory by default for disk storage. This is mounted as a volume for persistence.
 
 ### Local Development
 
@@ -283,7 +477,10 @@ goarchive/
 3. **Run the application**:
 
    ```bash
-   go run cmd/goarchive/main.go
+   cd cmd/goarchive && go run main.go backup
+
+   # Or use make
+   make run
    ```
 
 ## Configuration
@@ -292,29 +489,50 @@ All configuration is done through environment variables:
 
 ### Database Configuration
 
-| Variable      | Description                                    | Default     |
-| ------------- | ---------------------------------------------- | ----------- |
-| `DB_TYPE`     | Database type (currently only `postgres`)      | `postgres`  |
-| `DB_HOST`     | Database host                                  | `localhost` |
-| `DB_PORT`     | Database port                                  | `5432`      |
-| `DB_USERNAME` | Database username                              | `postgres`  |
-| `DB_PASSWORD` | Database password                              | -           |
-| `DB_DATABASE` | Database name                                  | `postgres`  |
-| `DB_SSLMODE`  | SSL mode (`disable`, `require`, `verify-full`) | `disable`   |
+| Variable      | Description                                       | Default     |
+| ------------- | ------------------------------------------------- | ----------- |
+| `DB_TYPE`     | Database type (run `goarchive providers` to list) | `postgres`  |
+| `DB_HOST`     | Database host                                     | `localhost` |
+| `DB_PORT`     | Database port                                     | `5432`      |
+| `DB_USERNAME` | Database username                                 | `postgres`  |
+| `DB_PASSWORD` | Database password                                 | -           |
+| `DB_DATABASE` | Database name                                     | `postgres`  |
+| `DB_SSLMODE`  | SSL mode (`disable`, `require`, `verify-full`)    | `disable`   |
 
 ### Storage Configuration
 
-| Variable             | Description                               | Default     |
-| -------------------- | ----------------------------------------- | ----------- |
-| `STORAGE_TYPE`       | Storage type (currently only `s3`)        | `s3`        |
-| `STORAGE_BUCKET`     | S3 bucket name                            | -           |
-| `STORAGE_REGION`     | AWS region                                | `us-east-1` |
-| `STORAGE_ACCESS_KEY` | AWS access key (optional if using IAM)    | -           |
-| `STORAGE_SECRET_KEY` | AWS secret key (optional if using IAM)    | -           |
-| `STORAGE_PREFIX`     | S3 prefix for backups                     | `backups/`  |
-| `AWS_ENDPOINT_URL`   | Custom S3 endpoint (for LocalStack/MinIO) | -           |
+| Variable             | Description                                      | Default     |
+| -------------------- | ------------------------------------------------ | ----------- |
+| `STORAGE_TYPE`       | Storage type (run `goarchive providers` to list) | `disk`      |
+| `STORAGE_PATH`       | Local directory for backups (disk storage)       | `./backups` |
+| `STORAGE_BUCKET`     | S3 bucket name (S3 storage)                      | -           |
+| `STORAGE_REGION`     | AWS region (S3 storage)                          | `us-east-1` |
+| `STORAGE_ACCESS_KEY` | AWS access key (S3, optional if using IAM)       | -           |
+| `STORAGE_SECRET_KEY` | AWS secret key (S3, optional if using IAM)       | -           |
+| `STORAGE_PREFIX`     | S3 prefix for backups (S3 storage)               | `backups/`  |
+| `AWS_ENDPOINT_URL`   | Custom S3 endpoint (for LocalStack/MinIO)        | -           |
 
 ## Available Providers
+
+To see all available providers in your installation, run:
+
+```bash
+goarchive providers
+```
+
+### Selecting Providers
+
+Use the `--db-type` and `--storage-type` flags (or `DB_TYPE` and `STORAGE_TYPE` environment variables) to select which providers to use:
+
+```bash
+# Using command-line flags
+goarchive backup --db-type postgres --storage-type s3 [other options]
+
+# Using environment variables
+export DB_TYPE=postgres
+export STORAGE_TYPE=s3
+goarchive backup
+```
 
 ### Database Providers
 
@@ -322,7 +540,10 @@ All configuration is done through environment variables:
 
 ### Storage Providers
 
+- **disk** - Local disk storage (default, no additional dependencies)
 - **s3** - Amazon S3 and S3-compatible storage (MinIO, LocalStack, etc.)
+
+> **Note:** Additional providers can be added as separate Go modules. See [EXTENDING.md](EXTENDING.md) for details on creating custom database or storage providers.
 
 ### Community Plugins
 
@@ -473,10 +694,13 @@ docker push your-registry/goarchive:1.0.0
 
 ```bash
 # Build for Linux (for K8s/containers)
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o goarchive ./cmd/goarchive
+cd cmd/goarchive && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../../goarchive .
 
 # Build for your platform
-go build -o goarchive ./cmd/goarchive
+cd cmd/goarchive && go build -o ../../goarchive .
+
+# Or use make
+make build
 ```
 
 ### Kubernetes CronJob
@@ -509,6 +733,7 @@ spec:
           containers:
             - name: goarchive
               image: your-registry/goarchive:1.0.0
+              command: ["goarchive", "backup"]
               env:
                 # Database configuration
                 - name: DB_TYPE
@@ -572,6 +797,81 @@ kubectl logs job/database-backup-<timestamp>
 
 # Manually trigger a job (for testing)
 kubectl create job backup-manual --from=cronjob/database-backup
+```
+
+**Alternative: Using Disk Storage with PersistentVolumeClaim**
+
+```yaml
+# PersistentVolumeClaim for backup storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+# CronJob using disk storage
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: database-backup-disk
+spec:
+  schedule: "0 2 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: goarchive
+              image: your-registry/goarchive:1.0.0
+              command: ["goarchive", "backup"]
+              env:
+                # Database configuration
+                - name: DB_HOST
+                  value: "postgres-service.default.svc.cluster.local"
+                - name: DB_PORT
+                  value: "5432"
+                - name: DB_DATABASE
+                  value: "myapp"
+                - name: DB_USERNAME
+                  value: "postgres"
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: goarchive-secrets
+                      key: db-password
+                - name: DB_SSLMODE
+                  value: "require"
+
+                # Storage configuration (disk)
+                - name: STORAGE_TYPE
+                  value: "disk"
+                - name: STORAGE_PATH
+                  value: "/backups"
+
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: backup-storage
 ```
 
 ### AWS ECS Scheduled Task

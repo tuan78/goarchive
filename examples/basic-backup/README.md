@@ -2,6 +2,15 @@
 
 A simple example demonstrating how to use GoArchive to backup a PostgreSQL database to S3.
 
+## Setup
+
+This example has its own `go.mod` file and can be run independently:
+
+```bash
+cd examples/basic-backup
+go mod tidy  # Download dependencies
+```
+
 ## Usage
 
 1. Set environment variables:
@@ -19,16 +28,18 @@ export STORAGE_ACCESS_KEY=your-access-key
 export STORAGE_SECRET_KEY=your-secret-key
 ```
 
-1. Run the example:
+2. Run the example:
 
 ```bash
+# From examples/basic-backup directory
+go run main.go
+
+# Or build and run
+go build -o basic-backup .
+./basic-backup
+
+# Or from the root of the project
 go run examples/basic-backup/main.go
-```
-
-Or using the config loader:
-
-```bash
-go run examples/using-env-config/main.go
 ```
 
 ## What It Does

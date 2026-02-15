@@ -16,12 +16,12 @@ help:
 ## build: Build the application binary
 build:
 	@echo "Building $(APP_NAME)..."
-	go build -o $(APP_NAME) ./cmd/goarchive
+	cd cmd/goarchive && go build -o ../../$(APP_NAME) .
 
 ## run: Run the application locally
 run:
 	@echo "Running $(APP_NAME)..."
-	go run ./cmd/goarchive/main.go
+	cd cmd/goarchive && go run main.go
 
 ## test: Run tests
 test:
@@ -48,8 +48,19 @@ fmt:
 ## tidy: Tidy and verify module dependencies
 tidy:
 	@echo "Tidying dependencies..."
+	@echo "- Core module..."
 	go mod tidy
 	go mod verify
+	@echo "- Provider modules..."
+	cd database/postgres && go mod tidy
+	cd storage/disk && go mod tidy
+	cd storage/s3 && go mod tidy
+	@echo "- CLI module..."
+	cd cmd/goarchive && go mod tidy
+	@echo "- Example modules..."
+	cd examples/basic-backup && go mod tidy
+	cd examples/using-env-config && go mod tidy
+	@echo "✓ All modules tidied (verify skipped for modules with local replaces)"
 
 ## clean: Clean build artifacts
 clean:
@@ -62,6 +73,11 @@ clean:
 docker-build:
 	@echo "Building Docker image..."
 	docker build -t $(DOCKER_IMAGE) .
+
+## docker-build-scheduler: Build Docker image with scheduler
+docker-build-scheduler:
+	@echo "Building Docker scheduler image..."
+	docker build -f Dockerfile.scheduler -t goarchive:scheduler .
 
 ## docker-run: Run the application in Docker
 docker-run: docker-build
