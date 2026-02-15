@@ -14,7 +14,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o goarchive ./cmd/goarchive
 
 # Stage 3: Runtime
-FROM postgres:16-alpine
+FROM postgres:18-alpine
 
 RUN apk --no-cache add ca-certificates aws-cli
 
