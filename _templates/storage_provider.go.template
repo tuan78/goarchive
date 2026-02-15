@@ -1,0 +1,132 @@
+// This is a template file for creating a custom storage provider plugin.
+// Copy this file to your own package and implement the required methods.
+//
+// Package structure:
+//   storage/
+//   └── yourstorage/
+//       └── provider.go
+
+package yourstorage
+
+import (
+	"context"
+	"fmt"
+	"io"
+
+	"goarchive/core"
+)
+
+// init registers the custom storage provider with the global registry
+// This function is called automatically when the package is imported
+func init() {
+	core.RegisterStorage("yourstorage", func(ctx context.Context, config *core.StorageConfig) (core.StorageProvider, error) {
+		return New(ctx, config)
+	})
+}
+
+// Provider implements the StorageProvider interface for a custom storage backend
+type Provider struct {
+	config *core.StorageConfig
+	// Add your storage-specific fields here
+	// e.g., client, connection, etc.
+}
+
+// New creates a new storage provider
+func New(ctx context.Context, config *core.StorageConfig) (*Provider, error) {
+	// Validate configuration
+	if config.Bucket == "" {
+		return nil, fmt.Errorf("bucket/container name is required")
+	}
+
+	// Initialize your storage client here
+	// e.g., create client, authenticate, etc.
+
+	return &Provider{
+		config: config,
+	}, nil
+}
+
+// Upload uploads backup data to storage
+// This method should:
+// 1. Read data from the reader
+// 2. Upload to your storage backend
+// 3. Calculate and store checksum
+// 4. Update metadata with size and checksum
+// 5. Respect context cancellation
+func (p *Provider) Upload(ctx context.Context, reader io.Reader, metadata *core.BackupMetadata) error {
+	// Example implementation:
+	// 1. Read all data (or stream if supported)
+	// 2. Calculate checksum (MD5, SHA256, etc.)
+	// 3. Upload to storage with metadata
+	// 4. Update metadata.Size and metadata.Checksum
+
+	// Placeholder implementation
+	return fmt.Errorf("upload not implemented for custom provider")
+}
+
+// List lists available backups from storage
+// This method should:
+// 1. Query your storage for backup objects
+// 2. Parse metadata from each object
+// 3. Return list of backup metadata
+func (p *Provider) List(ctx context.Context) ([]*core.BackupMetadata, error) {
+	// Example implementation:
+	// 1. List objects in your storage
+	// 2. Filter by prefix if configured
+	// 3. Parse metadata from each object
+	// 4. Return sorted list
+
+	// Placeholder implementation
+	return nil, fmt.Errorf("list not implemented for custom provider")
+}
+
+// Download downloads a backup from storage
+// This method should:
+// 1. Locate the backup by ID
+// 2. Return a reader for streaming the data
+// 3. Respect context cancellation
+func (p *Provider) Download(ctx context.Context, backupID string) (io.ReadCloser, error) {
+	// Example implementation:
+	// 1. Construct object key/path from backupID
+	// 2. Get object from storage
+	// 3. Return reader
+
+	// Placeholder implementation
+	return nil, fmt.Errorf("download not implemented for custom provider")
+}
+
+// Delete deletes a backup from storage
+// This method should:
+// 1. Locate the backup by ID
+// 2. Delete it from storage
+// 3. Respect context cancellation
+func (p *Provider) Delete(ctx context.Context, backupID string) error {
+	// Example implementation:
+	// 1. Construct object key/path from backupID
+	// 2. Delete object from storage
+	// 3. Handle not found errors gracefully
+
+	// Placeholder implementation
+	return fmt.Errorf("delete not implemented for custom provider")
+}
+
+// Helper functions you might need:
+
+// getBackupKey generates the storage key/path for a backup
+func (p *Provider) getBackupKey(metadata *core.BackupMetadata) string {
+	// Construct a unique key for the backup
+	// Include prefix, database name, timestamp, etc.
+	return fmt.Sprintf("%s%s_%s_%s.dump",
+		p.config.Prefix,
+		metadata.DatabaseType,
+		metadata.DatabaseName,
+		metadata.ID,
+	)
+}
+
+// parseBackupID extracts the backup ID from a storage key
+func (p *Provider) parseBackupID(key string) string {
+	// Extract backup ID from the storage key
+	// This is the reverse of getBackupKey()
+	return key
+}

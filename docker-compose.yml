@@ -1,0 +1,74 @@
+version: "3.8"
+
+services:
+  # PostgreSQL database for testing
+  postgres:
+    image: postgres:16-alpine
+    container_name: backup-test-postgres
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: testdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # LocalStack for S3 testing (alternative to real AWS)
+  localstack:
+    image: localstack/localstack:latest
+    container_name: backup-test-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # GoArchive application
+  goarchive:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: goarchive
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_started
+    environment:
+      # Database configuration
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: testuser
+      DB_PASSWORD: testpass
+      DB_DATABASE: testdb
+      DB_SSLMODE: disable
+
+      # Storage configuration (using LocalStack)
+      STORAGE_TYPE: s3
+      STORAGE_BUCKET: backups
+      STORAGE_REGION: us-east-1
+      STORAGE_ACCESS_KEY: test
+      STORAGE_SECRET_KEY: test
+      STORAGE_PREFIX: db-backups/
+
+      # AWS SDK configuration for LocalStack
+      AWS_ENDPOINT_URL: http://localstack:4566
+    # Uncomment for manual run
+    # profiles:
+    #   - manual
+
+volumes:
+  postgres-data:
+  localstack-data:

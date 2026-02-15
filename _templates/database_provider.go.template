@@ -1,0 +1,131 @@
+// This is a template file for creating a custom database provider plugin.
+// Copy this file to your own package and implement the required methods.
+//
+// Package structure:
+//   database/
+//   └── yourdb/
+//       └── provider.go
+
+package yourdb
+
+import (
+	"context"
+	"fmt"
+	"io"
+
+	"goarchive/core"
+)
+
+// init registers the custom provider with the global registry
+// This function is called automatically when the package is imported
+func init() {
+	core.RegisterDatabase("yourdb", func(config *core.DatabaseConfig) (core.DatabaseProvider, error) {
+		return New(config)
+	})
+}
+
+// Provider implements the DatabaseProvider interface for your database
+type Provider struct {
+	config *core.DatabaseConfig
+	// Add your database-specific fields here
+	// e.g., connection pool, client, etc.
+}
+
+// New creates a new database provider
+func New(config *core.DatabaseConfig) (*Provider, error) {
+	// Validate configuration
+	if config.Host == "" {
+		return nil, fmt.Errorf("host is required")
+	}
+	if config.Database == "" {
+		return nil, fmt.Errorf("database name is required")
+	}
+
+	// Initialize your database connection here
+	// e.g., connect to database, create connection pool, etc.
+
+	return &Provider{
+		config: config,
+	}, nil
+}
+
+// Backup creates a backup and returns a reader for the backup data
+// This method should:
+// 1. Create a backup of the database
+// 2. Return an io.ReadCloser that streams the backup data
+// 3. Respect context cancellation
+func (p *Provider) Backup(ctx context.Context) (io.ReadCloser, error) {
+	// Example implementation:
+	// 1. Execute your database's backup command or API
+	// 2. Stream the output to a reader
+	// 3. Return the reader
+
+	// Placeholder implementation
+	return nil, fmt.Errorf("backup not implemented for custom provider")
+}
+
+// Restore restores a database from backup data
+// This method should:
+// 1. Read backup data from the reader
+// 2. Restore the database
+// 3. Respect context cancellation
+func (p *Provider) Restore(ctx context.Context, reader io.Reader) error {
+	// Example implementation:
+	// 1. Execute your database's restore command or API
+	// 2. Stream data from reader to restore process
+	// 3. Wait for completion
+
+	// Placeholder implementation
+	return fmt.Errorf("restore not implemented for custom provider")
+}
+
+// GetMetadata returns metadata about the database
+// This should return information like:
+// - Database type/name
+// - Version
+// - Size (optional but recommended)
+func (p *Provider) GetMetadata() (*core.DatabaseMetadata, error) {
+	// Example implementation:
+	// 1. Query database for version information
+	// 2. Query database for size information
+	// 3. Return metadata
+
+	return &core.DatabaseMetadata{
+		Type:    "yourdb",
+		Version: "1.0.0", // Query from your database
+		Size:    0,       // Calculate from your database
+		Name:    p.config.Database,
+	}, nil
+}
+
+// Close closes the database connection
+// This method should clean up any resources:
+// - Close connections
+// - Release connection pools
+// - Clean up temporary files
+func (p *Provider) Close() error {
+	// Example implementation:
+	// 1. Close database connections
+	// 2. Release resources
+	// 3. Clean up temporary files
+
+	// Placeholder implementation
+	return nil
+}
+
+// Example helper functions you might need:
+
+// backupReader is a helper type that wraps a reader and waits for a process to complete
+// This is useful when streaming output from a command
+type backupReader struct {
+	io.ReadCloser
+	cleanup func() error
+}
+
+func (r *backupReader) Close() error {
+	r.ReadCloser.Close()
+	if r.cleanup != nil {
+		return r.cleanup()
+	}
+	return nil
+}

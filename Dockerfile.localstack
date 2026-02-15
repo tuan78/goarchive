@@ -1,0 +1,37 @@
+# Stage 1: Create the S3 bucket in LocalStack
+FROM localstack/localstack:latest AS setup
+
+# Stage 2: Build the Go application
+FROM golang:1.21-alpine AS builder
+
+RUN apk add --no-cache git
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o goarchive ./cmd/goarchive
+
+# Stage 3: Runtime
+FROM postgres:16-alpine
+
+RUN apk --no-cache add ca-certificates aws-cli
+
+WORKDIR /root/
+COPY --from=builder /app/goarchive .
+
+# Script to create S3 bucket if using LocalStack
+COPY <<EOF /root/setup-localstack.sh
+#!/bin/sh
+if [ ! -z "\$AWS_ENDPOINT_URL" ]; then
+  echo "Creating S3 bucket in LocalStack..."
+  aws --endpoint-url=\$AWS_ENDPOINT_URL s3 mb s3://\$STORAGE_BUCKET --region \$STORAGE_REGION || true
+  echo "Bucket created or already exists"
+fi
+./goarchive
+EOF
+
+RUN chmod +x /root/setup-localstack.sh
+
+ENTRYPOINT ["/root/setup-localstack.sh"]
