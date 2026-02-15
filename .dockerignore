@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+CONTRIBUTING.md
+SECURITY.md
+LICENSE
+
+# Development files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Build artifacts
+goarchive
+goarchive-bin
+*.exe
+
+# Templates and examples (not needed in runtime)
+_templates/
+examples/
+
+# Docker files
+docker-compose.yml
+Dockerfile*
+.dockerignore
+
+# CI/CD
+.github/
+
+# Test files
+*_test.go
+testdata/

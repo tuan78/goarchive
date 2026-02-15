@@ -25,16 +25,29 @@ GoArchive makes database backups simple and extensible. Built with a plugin arch
 - **🐳 Docker Ready**: Containerized deployment
 - **🧩 Easy to Extend**: Simple interface-based plugin system
 
-## Quick Start
+## Installation
 
-### As a Standalone Tool
+GoArchive uses **Go submodules** - each provider is a separate module with its own dependencies.
 
 ```bash
-# Clone the repository
-git clone https://github.com/tuan78/goarchive
-cd goarchive
+# Core library
+go get goarchive
 
-# Set configuration
+# Add providers you need
+go get goarchive/database/postgres
+go get goarchive/storage/s3
+```
+
+## Quick Start
+
+### Running the CLI Tool
+
+The `cmd/goarchive` binary reads all configuration from environment variables.
+
+**Option 1: Run directly**
+
+```bash
+# Set environment variables
 export DB_TYPE=postgres
 export DB_HOST=localhost
 export DB_PORT=5432
@@ -44,9 +57,87 @@ export DB_DATABASE=mydb
 export STORAGE_TYPE=s3
 export STORAGE_BUCKET=my-backups
 export STORAGE_REGION=us-west-2
+export STORAGE_ACCESS_KEY=your-aws-key
+export STORAGE_SECRET_KEY=your-aws-secret
 
-# Run backup
+# Run without building
 go run cmd/goarchive/main.go
+```
+
+**Option 2: Build and run**
+
+```bash
+# Build binary
+go build -o goarchive ./cmd/goarchive
+
+# Run the binary
+./goarchive
+
+# Or install globally
+go install ./cmd/goarchive
+goarchive
+```
+
+**Option 3: Using Docker**
+
+```bash
+# Build image
+docker build -t goarchive:latest .
+
+# Run with environment variables
+docker run --rm \
+  -e DB_HOST=your-db-host \
+  -e DB_PORT=5432 \
+  -e DB_USERNAME=postgres \
+  -e DB_PASSWORD=secret \
+  -e DB_DATABASE=mydb \
+  -e STORAGE_BUCKET=my-backups \
+  -e STORAGE_REGION=us-west-2 \
+  -e STORAGE_ACCESS_KEY=your-key \
+  -e STORAGE_SECRET_KEY=your-secret \
+  goarchive:latest
+```
+
+**Option 4: Kubernetes CronJob**
+
+See the [Production Deployment](#production-deployment) section below for complete K8s examples.
+
+### Complete Example with Output
+
+```bash
+# Set all required environment variables
+export DB_TYPE=postgres
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_USERNAME=postgres
+export DB_PASSWORD=secret
+export DB_DATABASE=myapp
+export STORAGE_TYPE=s3
+export STORAGE_BUCKET=my-backups
+export STORAGE_REGION=us-west-2
+export STORAGE_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
+export STORAGE_SECRET_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+export STORAGE_PREFIX=prod-backups/
+
+# Run the backup
+go run cmd/goarchive/main.go
+```
+
+**Expected Output:**
+
+```
+2026/02/15 10:30:15 Starting goarchive...
+2026/02/15 10:30:15 Starting backup process...
+
+=== Backup Completed Successfully ===
+Backup ID:       myapp_postgres_20260215-103020.dump
+Database:        myapp (postgres)
+Timestamp:       2026-02-15T10:30:20Z
+Size:            45678901 bytes (43.55 MB)
+Checksum (MD5):  a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+====================================
+
+2026/02/15 10:30:20 Backup completed successfully
 ```
 
 ### As a Library
@@ -60,7 +151,7 @@ import (
 
     "goarchive/core"
 
-    // Import only the plugins you need
+    // Import providers you need
     _ "goarchive/database/postgres"
     _ "goarchive/storage/s3"
 )
@@ -237,6 +328,62 @@ All configuration is done through environment variables:
 
 Want to add your plugin here? Submit a PR or create an issue!
 
+## Troubleshooting
+
+### Common Issues
+
+**Error: "could not import goarchive/database/postgres"**
+
+```bash
+# Solution: Install the provider submodule
+go get goarchive/database/postgres
+go get goarchive/storage/s3
+go mod tidy
+```
+
+**Error: "database provider 'postgres' not registered"**
+
+```go
+// Solution: Make sure you import the provider with blank import
+import _ "goarchive/database/postgres"
+```
+
+**Error: "failed to connect to PostgreSQL"**
+
+- Check `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` are correct
+- Verify the database is accessible from your network
+- Check if SSL is required: set `DB_SSLMODE=require`
+
+**Error: "failed to upload to S3"**
+
+- Verify `STORAGE_BUCKET` exists and you have write permissions
+- Check `STORAGE_ACCESS_KEY` and `STORAGE_SECRET_KEY` are valid
+- Ensure `STORAGE_REGION` matches your bucket's region
+
+**Docker build fails: "requires go >= 1.24.0"**
+
+- Update Dockerfile to use a newer Go version:
+  ```dockerfile
+  FROM golang:1.24-alpine AS builder
+  ```
+
+### Testing Locally
+
+```bash
+# Test with LocalStack (S3) and local PostgreSQL
+docker-compose up -d postgres localstack
+
+# Wait for services to start
+sleep 10
+
+# Create S3 bucket in LocalStack
+docker-compose run --rm goarchive sh -c \
+  "aws --endpoint-url=http://localstack:4566 s3 mb s3://backups --region us-east-1"
+
+# Run backup
+docker-compose run --rm goarchive
+```
+
 ## Extending GoArchive
 
 ### Creating a Plugin
@@ -286,12 +433,23 @@ db, _ := core.GetDatabase("mysql", config)
 
 Plugins can be **published as separate Go modules**:
 
-```bash
+```go
+// github.com/youruser/goarchive-mongodb/go.mod
 module github.com/youruser/goarchive-mongodb
-require goarchive v0.1.0
+
+go 1.24.0
+
+require (
+    goarchive v0.1.0
+    go.mongodb.org/mongo-driver v1.13.0
+)
 ```
 
-Users just import your module:
+Users install and use it:
+
+```bash
+go get github.com/youruser/goarchive-mongodb
+```
 
 ```go
 import _ "github.com/youruser/goarchive-mongodb"
@@ -299,7 +457,40 @@ import _ "github.com/youruser/goarchive-mongodb"
 
 ## Production Deployment
 
-### Kubernetes CronJob Example
+### Building for Production
+
+**Build Docker Image:**
+
+```bash
+# Build the image
+docker build -t your-registry/goarchive:1.0.0 .
+
+# Push to registry
+docker push your-registry/goarchive:1.0.0
+```
+
+**Or build native binary:**
+
+```bash
+# Build for Linux (for K8s/containers)
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o goarchive ./cmd/goarchive
+
+# Build for your platform
+go build -o goarchive ./cmd/goarchive
+```
+
+### Kubernetes CronJob
+
+**Step 1: Create Secret for credentials**
+
+```bash
+kubectl create secret generic goarchive-secrets \
+  --from-literal=db-password='your-db-password' \
+  --from-literal=storage-access-key='your-aws-access-key' \
+  --from-literal=storage-secret-key='your-aws-secret-key'
+```
+
+**Step 2: Apply CronJob manifest**
 
 ```yaml
 apiVersion: batch/v1
@@ -307,35 +498,80 @@ kind: CronJob
 metadata:
   name: database-backup
 spec:
-  schedule: "0 2 * * *" # Daily at 2 AM
+  schedule: "0 2 * * *" # Daily at 2 AM UTC
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
       template:
         spec:
+          restartPolicy: OnFailure
           containers:
             - name: goarchive
-              image: goarchive:latest
+              image: your-registry/goarchive:1.0.0
               env:
+                # Database configuration
                 - name: DB_TYPE
                   value: "postgres"
                 - name: DB_HOST
-                  value: "postgres-service"
+                  value: "postgres-service.default.svc.cluster.local"
+                - name: DB_PORT
+                  value: "5432"
+                - name: DB_DATABASE
+                  value: "myapp"
                 - name: DB_USERNAME
-                  valueFrom:
-                    secretKeyRef:
-                      name: postgres-credentials
-                      key: username
+                  value: "postgres"
                 - name: DB_PASSWORD
                   valueFrom:
                     secretKeyRef:
-                      name: postgres-credentials
-                      key: password
+                      name: goarchive-secrets
+                      key: db-password
+                - name: DB_SSLMODE
+                  value: "require"
+
+                # Storage configuration
+                - name: STORAGE_TYPE
+                  value: "s3"
                 - name: STORAGE_BUCKET
-                  value: "your-backup-bucket"
+                  value: "my-backup-bucket"
                 - name: STORAGE_REGION
                   value: "us-east-1"
-              # Add other env vars as needed
-          restartPolicy: OnFailure
+                - name: STORAGE_PREFIX
+                  value: "prod-backups/"
+                - name: STORAGE_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: goarchive-secrets
+                      key: storage-access-key
+                - name: STORAGE_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: goarchive-secrets
+                      key: storage-secret-key
+
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+```
+
+**Step 3: Verify the CronJob**
+
+```bash
+# Check CronJob status
+kubectl get cronjob database-backup
+
+# View recent jobs
+kubectl get jobs
+
+# Check logs from a job
+kubectl logs job/database-backup-<timestamp>
+
+# Manually trigger a job (for testing)
+kubectl create job backup-manual --from=cronjob/database-backup
 ```
 
 ### AWS ECS Scheduled Task
