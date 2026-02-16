@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-02-16
+
+### Added
+
+- **Comprehensive test coverage** across all packages
+  - Core package: 97.6% coverage (up from 82.9%)
+  - Disk storage: 80% coverage with 6 test cases
+  - S3 storage: 22.7% coverage with integration tests
+  - PostgreSQL: 16.7% coverage with integration tests
+  - Registry and config validation tests
+
+- **CI/CD workflows** with GitHub Actions
+  - Automated testing on push and pull requests
+  - Code coverage reporting with Codecov
+  - golangci-lint integration for code quality
+  - Integration tests with PostgreSQL 16 and LocalStack
+  - Dependabot for dependency updates
+
+- **Environment variable standardization**
+  - Generic `DB_*` prefixes for database configuration
+  - Generic `STORAGE_*` prefixes for storage configuration
+  - Provider-agnostic configuration for better flexibility
+
+### Fixed
+
+- Disk storage filename bug in parseMetadata
+- golangci-lint errors (errcheck, gofmt, staticcheck)
+- Nil pointer dereference in tests
+- Error handling in concurrent tests
+
+### Changed
+
+- Updated workflows to use standardized environment variables
+- Improved test coverage with integration tests
+- Enhanced code quality with linting rules
+
 ## [0.1.0] - 2026-02-15
 
 ### Added
