@@ -37,28 +37,38 @@ func New(ctx context.Context, storageConfig *core.StorageConfig) (*Provider, err
 	var cfg aws.Config
 	var err error
 
+	// Build config options
+	configOpts := []func(*config.LoadOptions) error{
+		config.WithRegion(storageConfig.Region),
+	}
+
+	// Add credentials if provided
 	if storageConfig.AccessKey != "" && storageConfig.SecretKey != "" {
-		// Use static credentials
-		cfg, err = config.LoadDefaultConfig(ctx,
-			config.WithRegion(storageConfig.Region),
+		configOpts = append(configOpts,
 			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 				storageConfig.AccessKey,
 				storageConfig.SecretKey,
 				"",
 			)),
 		)
-	} else {
-		// Use default credential chain (IAM role, env vars, etc.)
-		cfg, err = config.LoadDefaultConfig(ctx,
-			config.WithRegion(storageConfig.Region),
-		)
 	}
 
+	cfg, err = config.LoadDefaultConfig(ctx, configOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	client := s3.NewFromConfig(cfg)
+	// Create S3 client with optional custom endpoint
+	var client *s3.Client
+	if storageConfig.Endpoint != "" {
+		// Use custom endpoint (e.g., LocalStack)
+		client = s3.NewFromConfig(cfg, func(o *s3.Options) {
+			o.BaseEndpoint = aws.String(storageConfig.Endpoint)
+			o.UsePathStyle = true // Required for LocalStack
+		})
+	} else {
+		client = s3.NewFromConfig(cfg)
+	}
 
 	return &Provider{
 		client: client,

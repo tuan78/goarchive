@@ -61,9 +61,7 @@ services:
       STORAGE_ACCESS_KEY: test
       STORAGE_SECRET_KEY: test
       STORAGE_PREFIX: db-backups/
-
-      # AWS SDK configuration for LocalStack
-      AWS_ENDPOINT_URL: http://localstack:4566
+      STORAGE_ENDPOINT: http://localstack:4566
     # One-time backup - runs and exits
     profiles:
       - oneshot
@@ -158,9 +156,7 @@ services:
       STORAGE_ACCESS_KEY: test
       STORAGE_SECRET_KEY: test
       STORAGE_PREFIX: db-backups/
-
-      # AWS SDK configuration for LocalStack
-      AWS_ENDPOINT_URL: http://localstack:4566
+      STORAGE_ENDPOINT: http://localstack:4566
 
       # Scheduling (choose one):
       # Option 1: Cron expression (default: every 6 hours)

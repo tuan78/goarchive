@@ -27,6 +27,7 @@ type StorageConfig struct {
 	Type      string
 	Bucket    string // For S3-compatible storage
 	Region    string // For S3-compatible storage
+	Endpoint  string // For S3-compatible storage (e.g., LocalStack)
 	AccessKey string // For S3-compatible storage
 	SecretKey string // For S3-compatible storage
 	Prefix    string // For S3-compatible storage
@@ -34,6 +35,7 @@ type StorageConfig struct {
 }
 
 // LoadConfigFromEnv loads configuration from environment variables
+// Uses generic DB_* and STORAGE_* prefixes for provider-agnostic configuration
 func LoadConfigFromEnv() (*Config, error) {
 	config := &Config{
 		Database: DatabaseConfig{
@@ -48,6 +50,7 @@ func LoadConfigFromEnv() (*Config, error) {
 		Storage: StorageConfig{
 			Type:      getEnv("STORAGE_TYPE", "disk"),
 			Bucket:    getEnv("STORAGE_BUCKET", ""),
+			Endpoint:  getEnv("STORAGE_ENDPOINT", ""),
 			Region:    getEnv("STORAGE_REGION", "us-east-1"),
 			AccessKey: getEnv("STORAGE_ACCESS_KEY", ""),
 			SecretKey: getEnv("STORAGE_SECRET_KEY", ""),

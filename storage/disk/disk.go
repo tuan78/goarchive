@@ -195,7 +195,9 @@ func (p *Provider) parseMetadata(backup *core.BackupMetadata, content string) {
 
 		switch key {
 		case "ID":
-			backup.ID = value
+			// Note: We don't overwrite backup.ID here because it's already set to the filename
+			// The filename is what Download() and Delete() expect
+			continue
 		case "DatabaseName":
 			backup.DatabaseName = value
 		case "DatabaseType":

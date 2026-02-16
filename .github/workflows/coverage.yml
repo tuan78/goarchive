@@ -52,6 +52,25 @@ jobs:
                   cd ../../storage/disk && go mod download
                   cd ../../storage/s3 && go mod download
 
+            - name: Wait for services to be ready
+              run: |
+                  # Wait for PostgreSQL
+                  timeout 30 bash -c 'until pg_isready -h localhost -p 5432; do sleep 1; done'
+                  # Wait for LocalStack
+                  timeout 30 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q "s3.*available"; do sleep 1; done'
+
+            - name: Setup LocalStack S3 bucket
+              run: |
+                  # Install AWS CLI
+                  pip install awscli awscli-local
+                  # Create test bucket in LocalStack
+                  awslocal s3 mb s3://test-backup-bucket --region us-east-1 || true
+              env:
+                  AWS_ENDPOINT_URL: http://localhost:4566
+                  AWS_REGION: us-east-1
+                  AWS_ACCESS_KEY_ID: test
+                  AWS_SECRET_ACCESS_KEY: test
+
             - name: Generate coverage - Core
               run: go test -v -race -coverprofile=coverage-core.txt -covermode=atomic ./core/...
 
@@ -60,11 +79,13 @@ jobs:
                   cd database/postgres
                   go test -v -race -coverprofile=coverage-postgres.txt -covermode=atomic ./...
               env:
-                  POSTGRES_HOST: localhost
-                  POSTGRES_PORT: 5432
-                  POSTGRES_USER: testuser
-                  POSTGRES_PASSWORD: testpass
-                  POSTGRES_DB: testdb
+                  DB_HOST: localhost
+                  DB_PORT: 5432
+                  DB_USERNAME: testuser
+                  DB_PASSWORD: testpass
+                  DB_DATABASE: testdb
+                  DB_SSLMODE: disable
+                  DB_TYPE: postgres
 
             - name: Generate coverage - Storage providers
               run: |
@@ -73,10 +94,12 @@ jobs:
                   cd ../s3
                   go test -v -race -coverprofile=coverage-s3.txt -covermode=atomic ./...
               env:
-                  AWS_ENDPOINT: http://localhost:4566
-                  AWS_REGION: us-east-1
-                  AWS_ACCESS_KEY_ID: test
-                  AWS_SECRET_ACCESS_KEY: test
+                  STORAGE_ENDPOINT: http://localhost:4566
+                  STORAGE_REGION: us-east-1
+                  STORAGE_ACCESS_KEY: test
+                  STORAGE_SECRET_KEY: test
+                  STORAGE_TYPE: s3
+                  STORAGE_BUCKET: test-backup-bucket
 
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v4
