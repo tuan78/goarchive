@@ -160,7 +160,7 @@ func TestBackupService_Execute(t *testing.T) {
 		}
 
 		if metadata == nil {
-			t.Error("Expected metadata, got nil")
+			t.Fatal("Expected metadata, got nil")
 		}
 
 		if metadata.DatabaseName != "testdb" {

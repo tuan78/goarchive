@@ -237,4 +237,3 @@ func TestIntegration_S3(t *testing.T) {
 		}
 	})
 }
-

@@ -242,4 +242,3 @@ func TestIntegration_PostgreSQL(t *testing.T) {
 		}
 	})
 }
-

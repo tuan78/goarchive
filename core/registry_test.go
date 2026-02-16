@@ -46,10 +46,10 @@ func TestRegistry_RegisterStorage(t *testing.T) {
 
 func TestRegistry_GetDatabase(t *testing.T) {
 	tests := []struct {
-		name       string
-		register   bool
-		returnErr  bool
-		wantErr    bool
+		name        string
+		register    bool
+		returnErr   bool
+		wantErr     bool
 		errContains string
 	}{
 		{
@@ -304,7 +304,10 @@ func TestRegistry_Concurrent(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		go func() {
 			config := &core.DatabaseConfig{Host: "localhost", Username: "test"}
-			_, _ = registry.GetDatabase("test", config)
+			db, err := registry.GetDatabase("test", config)
+			if err != nil || db == nil {
+				t.Errorf("GetDatabase failed: %v", err)
+			}
 			_ = registry.ListDatabases()
 			done <- true
 		}()
@@ -312,7 +315,10 @@ func TestRegistry_Concurrent(t *testing.T) {
 		go func() {
 			ctx := context.Background()
 			config := &core.StorageConfig{Type: "test"}
-			_, _ = registry.GetStorage(ctx, "test", config)
+			storage, err := registry.GetStorage(ctx, "test", config)
+			if err != nil || storage == nil {
+				t.Errorf("GetStorage failed: %v", err)
+			}
 			_ = registry.ListStorages()
 			done <- true
 		}()
@@ -326,7 +332,7 @@ func TestRegistry_Concurrent(t *testing.T) {
 
 // Helper function
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && 
+	return len(s) >= len(substr) &&
 		(s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || findInString(s, substr)))
 }
 
@@ -338,4 +344,3 @@ func findInString(s, substr string) bool {
 	}
 	return false
 }
-

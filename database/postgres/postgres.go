@@ -84,10 +84,10 @@ func (p *Provider) Restore(ctx context.Context, reader io.Reader) error {
 		"-p", fmt.Sprintf("%d", p.config.Port),
 		"-U", p.config.Username,
 		"-d", p.config.Database,
-		"--clean",          // Clean (drop) database objects before recreating
-		"--if-exists",      // Use IF EXISTS when dropping objects
-		"--no-owner",       // Skip restoration of object ownership
-		"--no-privileges",  // Skip restoration of access privileges
+		"--clean",         // Clean (drop) database objects before recreating
+		"--if-exists",     // Use IF EXISTS when dropping objects
+		"--no-owner",      // Skip restoration of object ownership
+		"--no-privileges", // Skip restoration of access privileges
 		"--no-password",
 	)
 
