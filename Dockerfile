@@ -17,7 +17,7 @@ RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o goarchive .
 
 # Runtime stage
-FROM postgres:16-alpine
+FROM postgres:18-alpine
 
 # Install ca-certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates
